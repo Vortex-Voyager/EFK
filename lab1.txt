@@ -1,0 +1,140 @@
+🤔 What is Kubernetes?
+This course is not going to cover container orchestration using Kubernetes in detail. However, to set the premise for using EFK, lets go over the basics once. Kubernetes is an open-source platform that helps you manage and scale your applications. It groups containers (small, lightweight packages that contain everything your application needs to run) that make up an application into logical units, making it easier to manage and deploy them.
+
+🧩 Core Components of Kubernetes
+Let's break down some of the main components of Kubernetes:
+
+Pods 🥠: The smallest deployable units created and managed by Kubernetes.
+
+Services 🍽️: An abstract way to expose an application running on a set of Pods as a network service.
+
+Deployments 📦: Manage the deployment and scaling of a set of Pods and provide declarative updates to applications.
+
+🌟 Why Use Kubernetes?
+Kubernetes offers several benefits, including:
+
+Scalability 📈: Easily scale your application up or down based on demand.
+
+High Availability ⏰: Run your applications with the desired number of instances and keep them running across multiple nodes.
+
+Service Discovery and Load Balancing ⚖️: Kubernetes can expose a container using a DNS name or an IP address. If traffic to a container is high, Kubernetes is able to load balance and distribute the network traffic.
+
+🔍 The Role of the EFK Stack
+The EFK stack combines Elasticsearch, Fluentd, and Kibana to aggregate, store, and visualize logs from multiple sources within a Kubernetes environment.
+
+Components of the EFK Stack
+Elasticsearch 🔎: A distributed, RESTful search and analytics engine capable of addressing a growing number of use cases.
+
+Fluentd 🚿: An open-source data collector for unified logging, which allows you to unify data collection and consumption for better use and understanding of data.
+
+Kibana 📊: A visualization layer that works on top of Elasticsearch, providing a user-friendly interface to visualize data.
+
+Why Use the EFK Stack?
+Centralized Logging: Aggregate logs from all nodes and pods in a cluster, making it easier to monitor and troubleshoot.
+Scalability: Elasticsearch scales easily, allowing you to store and query large volumes of data efficiently.
+Powerful Visualization: Kibana provides powerful and beautiful visualizations of your log data, helping you to debug and understand application performance.
+🚀 Deploying the EFK Stack on Kubernetes
+Deploying the EFK stack on Kubernetes involves setting up each component to work together seamlessly. There are multiple ways of deploying the stack like manual deployment, helm charts, operators and pre-built cloud marketplace solutions. In this course, we will follow the manual deployment approach using individual manifest files.
+
+Below is a simplified overview of deploying the EFK stack.
+
+enter image description here
+
+Note: Some code snippets will be provided as a reference for each step. These ought not be used for the tasks - the task statements specifically mention the URLs to be used.
+
+Step 1: Deploy Elasticsearch
+Elasticsearch - the backend of the EFK stack - is basically a Document-based NoSQL database that runs on port 9200 by default.
+Elasticsearch doesn't just store data but also ensures data durability and failure recovery by utilizing replication. To ensure quick availability of data, it utilizes sharding in addition to replication.
+In an elasticsearch cluster, its the master node that coordinates actions and manages changes.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      component: elasticsearch
+  template:
+    metadata:
+      labels:
+        component: elasticsearch
+    spec:
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:7.9.3
+        ports:
+        - containerPort: 9200
+Step 2: Deploy Fluentd
+Fluentd - the log shipper - utilizes a variety of plugins for filtering and transforming log data. These plugins are defined in the fluentd configuration file, which uses the .conf extension.
+Fluentd uses memory buffering mechanism to ensure reliable log delivery to Elasticsearch.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+data:
+  fluent.conf: |
+    <match **>
+      @type elasticsearch
+      host elasticsearch
+      port 9200
+      logstash_format true
+    </match>
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd
+  labels:
+    app: fluentd
+spec:
+  selector:
+    matchLabels:
+      name: fluentd
+  template:
+    metadata:
+      labels:
+        name: fluentd
+    spec:
+      containers:
+      - name: fluentd
+        image: fluent/fluentd-kubernetes-daemonset:v1.14.6-debian-elasticsearch7-1.0
+        volumeMounts:
+        - name: fluentd-config
+          mountPath: /fluentd/etc/fluent.conf
+          subPath: fluent.conf
+        - name: varlog
+          mountPath: /var/log
+      volumes:
+      - name: fluentd-config
+        configMap:
+          name: fluentd-config
+      - name: varlog
+        hostPath:
+          path: /var/log
+Step 3: Deploy Kibana
+Kibana - the visualization wizard - provides extensive data presentation capabilities through graphs and charts and runs on port 5601 by default.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: kibana
+  template:
+    metadata:
+      labels:
+        component: kibana
+    spec:
+      containers:
+      - name: kibana
+        image: docker.elastic.co/kibana/kibana:7.9.3
+        ports:
+        - containerPort: 5601
+🎉 Conclusion
+The combination of Kubernetes and the EFK stack offers a powerful solution for managing containerized applications and their logs. Kubernetes provides the orchestration and scalability needed for modern applications, while the EFK stack offers the tools necessary for effective log management. Deploying the EFK stack on Kubernetes not only enhances monitoring and troubleshooting but also ensures that applications can scale and perform in an optimal manner.
